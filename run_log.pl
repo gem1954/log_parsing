@@ -8,7 +8,7 @@ my(@files, %files_opened, %pages);
 
 unless(-e $files[0])
 {
-	print "\n\n\tUsage $0 <gziped log file> [<gziped log file> <gziped log file> ..]\n\n";
+	print "\n\n\tUsage $0 <log file> [<log file> <log file> ..]\n\t\tif log files end in 'gz' they will be treated as gzipped\n";
 	exit;
 }
 
@@ -19,7 +19,16 @@ foreach my $infile (@files)
 	
 	# open the files for reading
 	my($I);
-    open($I,"gzip -dc $infile|") || die "cannot open '$infile'";
+	if($infile =~ /gz\Z/)
+	{
+		# zipped file
+		open($I,"gzip -dc $infile|") || die "cannot open '$infile'";
+	}
+	else
+	{
+		# text file
+		open($I,$infile) || die "cannot open '$infile'";
+	}
 
     while (my $line = <$I>)
     {
