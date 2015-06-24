@@ -7,26 +7,61 @@ use strict;
 use Date::Manip;
 &Date_Init("TZ=CST");
 
+use Getopt::Std;
+
 $| = 1; # don't buffer output
 
-my(@files, %log_field_maps, $map_used_AR, %files_opened, %pages, %unique_visitors, $sessions, $count);
+my(%opts, @report_dates, $out_dates, @files, %log_field_maps, $map_used_AR, %files_opened, %pages, 
+	%unique_visitors, $sessions, $count);
+
+getopt('SEH', \%opts);
 
 @files = @ARGV;
-@files = ('test_data/Drupal_HPL__ExampleLog','test_data/access_log-20150308','test_data/access_log-20150322',);
+#@files = ('test_data/access_log-20150308','test_data/access_log-20150322','test_data/Drupal_HPL__ExampleLog',);
 
 %log_field_maps =
 (
 	'new_apache' => ['host', 'user', 'cookie', 'date', 'request', 'result', 'size', '8', 'browser_str', '10'],
 	'old_apache' => ['host', 'user',  'date', 'request', 'result','size', '8', 'browser_str', '10']
 );
-
-$map_used_AR = $log_field_maps{'new_apache'};
-
-unless(-e $files[0])
+if(exists $log_field_maps{$opts{'H'}})
 {
-	print "\n\n\tUsage $0 <log file> [<log file> <log file> ..]\n\t\tif log files end in 'gz' they will be treated as gzipped\n";
+	$map_used_AR = $log_field_maps{$opts{'H'}};
+}
+else
+{
+	$map_used_AR = $log_field_maps{'new_apache'};
+}
+#@opts{'S', 'E'} = ('3/21/15', '4/1/15');
+if(my $start = &ParseDate($opts{'S'}))
+{
+	$report_dates[0] = $start;
+	$out_dates = &UnixDate($start, '%Y_%m_%d')
+}
+if(my $end = &ParseDate($opts{'E'}))
+{
+	$report_dates[1] = $end;
+	$out_dates .= &UnixDate($end, '-%Y_%m_%d')
+}
+print "start = $opts{'S'}\nend = $opts{'E'}\nheader = $opts{'H'} ($map_used_AR->[2])\nfile = $files[0]\n\n";
+# -S 1 -E 2 -H 3
+# -H new_apache
+# -H new_apache -S 2/5/14 -E 3/5/14 -- ssss
+#exit;
+
+#if(!-e $files[0] || $report_dates[0] =~ /\S/ || $report_dates[1] =~ /\S/ )
+#{
+#	print "\n\n\tUsage \n$0 -S <start date> -E <end date> [-H <type>] -- <log file> [<log file> <log file> ..]\n\t\tif log files end in 'gz' they will be treated as gzipped\n";
+#	exit;
+#}
+unless(-e $files[0] && $report_dates[0] && $report_dates[1])
+{
+	print "\n\n\tUsage \n$0 -S <start date> -E <end date> [-H <type>] -- <log file> [<log file> <log file> ..]\n\t\tif log files end in 'gz' they will be treated as gzipped\n";
 	exit;
 }
+
+print "OK__\n";
+#exit;
 
 foreach my $infile (@files)
 {
@@ -58,6 +93,20 @@ foreach my $infile (@files)
 		$log_record{'browser_str'} =~ s/"\Z//;
 		@log_record{'method', 'file', 'protocol'} = $log_record{'request'} =~ /"(\S+)\s*(\S+)\s*(\S+)"/;
 		$log_record{'date_obj'} = &ParseDate($log_record{'date'} =~ /\[(.+?)\]/);
+		
+		#print "$report_dates[0] $log_record{'date_obj'} $report_dates[1]\n";
+		if($log_record{'date_obj'} lt $report_dates[0])
+		{
+			#print "\tearly\n";
+			next;
+		}
+		if($log_record{'date_obj'} gt $report_dates[1])
+		{
+			#print "\tlate\n";
+			next;
+		}
+		print "$report_dates[0] $log_record{'date_obj'} $report_dates[1]\n";
+		print "\t OK\n";
 		if(0) # test to be sure log is parsed correctly
 		{
 			$log_record{'file'} =~ s/\?.*//;
@@ -70,19 +119,19 @@ foreach my $infile (@files)
 		# only report success
 	    if ($log_record{'result'} =~ /^200/)
 	    {
-			my($timedate_obj);
 			# get rid of query string
 			$log_record{'file'} =~ s/\?.*//;
 			# don't report on these
 	        next if($log_record{'file'} =~ /\.gif\Z/i);
 	        next if($log_record{'file'} =~ /\.jpg\Z/i);
+			next if($log_record{'file'} =~ /\.jpeg\Z/i);
 			next if($log_record{'file'} =~ /\.js\Z/i);
 			next if($log_record{'file'} =~ /\.css\Z/i);
 			next if($log_record{'file'} =~ /\.ht\Z/i);
 			next if($log_record{'file'} =~ /\.png\Z/i);
 			next if($log_record{'file'} =~ /\.swf\Z/i);
 			next if($log_record{'file'} =~ /\.pac\Z/i);
-			
+			next if($log_record{'file'} =~ /\.ico\Z/i);
 			# count it
 	        $pages{$log_record{'file'}}++;
 			
@@ -124,7 +173,7 @@ foreach my $infile (@files)
 {
 	my($visits_filename, $VH, $unique_visitors, $visits);
 	
-	$visits_filename = "visits_detail.csv";
+	$visits_filename = "visits_detail${out_dates}.csv";
 	
 	open($VH, '>', $visits_filename) || die;
 	
@@ -154,7 +203,7 @@ foreach my $infile (@files)
 {
 	my($pages_filename, $PH, $unique_visitors, $visits);
 	
-	$pages_filename = "pages.csv";
+	$pages_filename = "pages${out_dates}.csv";
 	
 	open($PH, '>', $pages_filename) || die;
 	

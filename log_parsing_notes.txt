@@ -1,0 +1,49 @@
+# log_parsing_notes.txt
+
+2015-06-10
+	Script run_log.pl
+		Add option to deal with unzipped files (test_data/Drupal_HPL__ExampleLog)
+		tested on old logs on dev - different format - changed order of parsed fields
+
+2015-06-11
+	Test run on dev
+		Add options for different field orders
+		Strip path-info from file
+		Add process indicator
+
+2015-06-11
+	Run on Drupal logs(By Micheal)
+		Date::Manip gave a warning
+		multiple files in one tar
+			had issues parsing tar separater
+			files not in date order - miscount on sessions
+		might need to add *.ico to filter
+		might want to add /admin* to filter
+
+2015-06-17
+	Added options processing
+		Start Date
+		End Date
+		Field List
+	Output to files
+		pagesYYYY_MM_DD-YYYY_MM_DD.csv
+			fields
+				pages
+				count
+		visits_detailYYYY_MM_DD-YYYY_MM_DD.csv
+			fields
+				IP Address
+				Browser String
+				Sessions
+				Pages
+				First Visit (date)
+				Last Visit (date)
+	Progress Reporting
+	
+2015-06-24	
+	Test against old logs (-H old_apache -S 10/1/10 -E 11/1/10 -- test_data\old_format_part_2010-10.log)
+	add *.ico to filter
+
+
+
+todo - run on Kalibrate logs		
